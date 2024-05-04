@@ -1,3 +1,9 @@
+
+use casey_chess::board::Board;
+
+
 fn main() {
-    println!("Hello, world!");
+    let mut board = Board::new();
+    board.setup_starting_position();
+    board.print(casey_chess::color::Color::White);
 }
