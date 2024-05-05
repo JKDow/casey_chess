@@ -1,7 +1,7 @@
-use crate::{square::Square, color::Color, piece::Piece};
+use crate::{color::Color, piece_type::PieceType, piece::Piece};
 
 pub struct Board {
-    squares: Vec<Vec<Option<Square>>>
+    squares: Vec<Vec<Option<Piece>>>
 }
 
 impl Board {
@@ -17,81 +17,60 @@ impl Board {
         Board { squares }
     }
 
-    pub fn set_piece(&mut self, x: usize, y: usize, piece: Piece, color: Color) {
-        self.squares[y][x] = Some(Square::new(piece, color));
+    pub fn set_piece(&mut self, x: usize, y: usize, piece: PieceType, color: Color) {
+        self.squares[y][x] = Some(Piece::new(piece, color));
+    }
+
+    /// Move a pice from one square to another.
+    /// Returns the piece that was taken, if any.
+    pub fn unchecked_move_piece(&mut self, from_x: usize, from_y: usize, to_x: usize, to_y: usize) -> Option<Piece> {
+        let piece = self.squares[from_y][from_x].take();
+        let taken_piece = self.squares[to_y][to_x].take();
+        self.squares[to_y][to_x] = piece;
+        taken_piece
     }
 
     pub fn setup_starting_position(&mut self) {
         for i in 0..8 {
-            self.set_piece(i, 1, Piece::Pawn, Color::White);
-            self.set_piece(i, 6, Piece::Pawn, Color::Black);
+            self.set_piece(i, 1, PieceType::Pawn, Color::White);
+            self.set_piece(i, 6, PieceType::Pawn, Color::Black);
         }
-        self.set_piece(0, 0, Piece::Rook, Color::White);
-        self.set_piece(1, 0, Piece::Knight, Color::White);
-        self.set_piece(2, 0, Piece::Bishop, Color::White);
-        self.set_piece(3, 0, Piece::Queen, Color::White);
-        self.set_piece(4, 0, Piece::King, Color::White);
-        self.set_piece(5, 0, Piece::Bishop, Color::White);
-        self.set_piece(6, 0, Piece::Knight, Color::White);
-        self.set_piece(7, 0, Piece::Rook, Color::White);
+        self.set_piece(0, 0, PieceType::Rook, Color::White);
+        self.set_piece(1, 0, PieceType::Knight, Color::White);
+        self.set_piece(2, 0, PieceType::Bishop, Color::White);
+        self.set_piece(3, 0, PieceType::Queen, Color::White);
+        self.set_piece(4, 0, PieceType::King, Color::White);
+        self.set_piece(5, 0, PieceType::Bishop, Color::White);
+        self.set_piece(6, 0, PieceType::Knight, Color::White);
+        self.set_piece(7, 0, PieceType::Rook, Color::White);
 
-        self.set_piece(0, 7, Piece::Rook, Color::Black);
-        self.set_piece(1, 7, Piece::Knight, Color::Black);
-        self.set_piece(2, 7, Piece::Bishop, Color::Black);
-        self.set_piece(3, 7, Piece::Queen, Color::Black);
-        self.set_piece(4, 7, Piece::King, Color::Black);
-        self.set_piece(5, 7, Piece::Bishop, Color::Black);
-        self.set_piece(6, 7, Piece::Knight, Color::Black);
-        self.set_piece(7, 7, Piece::Rook, Color::Black);
+        self.set_piece(0, 7, PieceType::Rook, Color::Black);
+        self.set_piece(1, 7, PieceType::Knight, Color::Black);
+        self.set_piece(2, 7, PieceType::Bishop, Color::Black);
+        self.set_piece(3, 7, PieceType::Queen, Color::Black);
+        self.set_piece(4, 7, PieceType::King, Color::Black);
+        self.set_piece(5, 7, PieceType::Bishop, Color::Black);
+        self.set_piece(6, 7, PieceType::Knight, Color::Black);
+        self.set_piece(7, 7, PieceType::Rook, Color::Black);
     }
 
-    /// A print function that prints the board to the console
-    /// in a human-readable format.
-    /// Will use characters like - and | to draw the board.
     pub fn print(&self, perspective: Color) {
-        let columns = if perspective == Color::White {
-            "    a   b   c   d   e   f   g   h"
+        let (column_label, rows, columns) = if perspective == Color::White {
+            ("    a   b   c   d   e   f   g   h", (0..8).rev().collect::<Vec<_>>(), (0..8).collect::<Vec<_>>())
         } else {
-            "    h   g   f   e   d   c   b   a"
+            ("    h   g   f   e   d   c   b   a", (0..8).collect::<Vec<_>>(), (0..8).rev().collect::<Vec<_>>())
         };
+        println!("{}", column_label); 
 
-        println!("{}", columns); 
-        let rows = if perspective == Color::White {
-            (0..8).rev().collect::<Vec<_>>()
-        } else {
-            (0..8).collect::<Vec<_>>()
-        };
-
-        for i in rows {
+        for i in &rows {
             println!("  +---+---+---+---+---+---+---+---+");
             let row_label = i + 1;
             print!("{} ", row_label);
-            let row = &self.squares[i];
-            let cols = if perspective == Color::White {
-                (0..8).collect::<Vec<_>>()
-            } else {
-                (0..8).rev().collect::<Vec<_>>()
-            };
 
-            for j in cols {
+            for j in &columns {
                 print!("| ");
-                let square_option: &Option<Square> = &row[j];
-                let symbol = match square_option {
-                    Some(square) => {
-                        let piece_symbol = match square.get_piece() {
-                            Piece::Pawn => "P",
-                            Piece::Rook => "R",
-                            Piece::Knight => "N",
-                            Piece::Bishop => "B",
-                            Piece::Queen => "Q",
-                            Piece::King => "K",
-                        };
-                        if *square.get_color() == Color::White {
-                            piece_symbol.to_string()
-                        } else {
-                            piece_symbol.to_lowercase()
-                        }
-                    },
+                let symbol = match &self.squares[*i][*j] {
+                    Some(piece) => piece.get_piece_char().to_string(),
                     None => " ".to_string(),
                 };
                 print!("{} ", symbol);
@@ -99,6 +78,6 @@ impl Board {
             println!("| {}", row_label);
         }
         println!("  +---+---+---+---+---+---+---+---+");
-        println!("{}", columns); 
+        println!("{}", column_label); 
     }
 }
