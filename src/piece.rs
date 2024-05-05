@@ -1,5 +1,6 @@
 use crate::{color::Color, piece_type::PieceType};
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct Piece {
     piece: PieceType,
     color: Color,
@@ -34,5 +35,23 @@ impl Piece {
         } else {
             symbol
         }
+    }
+
+    pub fn from_fen(fen: char) -> Option<Piece> {
+        let color = if fen.is_uppercase() {
+            Color::White
+        } else {
+            Color::Black
+        };
+        let piece = match fen.to_ascii_uppercase() {
+            'P' => PieceType::Pawn,
+            'R' => PieceType::Rook,
+            'N' => PieceType::Knight,
+            'B' => PieceType::Bishop,
+            'Q' => PieceType::Queen,
+            'K' => PieceType::King,
+            _ => return None,
+        };
+        Some(Piece::new(piece, color))
     }
 }
