@@ -9,5 +9,6 @@ pub enum MoveType {
     Bishop,
     Queen,
     KingNormal,
-    KingCastle,
+    KingCastleKingSide,
+    KingCastleQueenSide,
 }

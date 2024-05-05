@@ -1,7 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PieceType {
     Pawn,
     Rook,

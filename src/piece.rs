@@ -19,6 +19,10 @@ impl Piece {
         &self.color
     }
 
+    pub fn is_white(&self) -> bool {
+        self.color == Color::White
+    }
+
     // This function will return a character representing the piece on the square.
     // Upper case for white pieces, lower case for black pieces.
     pub fn get_piece_char(&self) -> char {
@@ -139,9 +143,14 @@ impl Piece {
             return MoveType::KingNormal;
         }
         // check for castling
-        if from_y == to_y && (from_x as i32 - to_x as i32).abs() == 2 {
-            return MoveType::KingCastle;
-        }
+        if (self.is_white() && from_y == 0 && from_x == 4) || (!self.is_white() && from_y == 7 && from_x == 4) {
+            if to_y == from_y && to_x == 6 {
+                return MoveType::KingCastleKingSide;
+            }
+            if to_y == from_y && to_x == 2 {
+                return MoveType::KingCastleQueenSide;
+            }
+        }        
         MoveType::Illegal
     }
 }
