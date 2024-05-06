@@ -90,8 +90,8 @@ impl Board {
                 if let Some(piece) = Piece::from_fen(c) {
                     if *piece.get_type() == PieceType::King {
                         match piece.get_color() {
-                            Color::White => board.white_king_position = (y, x),
-                            Color::Black => board.black_king_position = (y, x),
+                            Color::White => board.white_king_position = (x, y),
+                            Color::Black => board.black_king_position = (x, y),
                         }
                     }
                     board.squares[y][x] = Some(piece);
@@ -145,6 +145,19 @@ impl Board {
     pub fn starting_position() -> Board {
         let starting_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         Board::from_fen(starting_fen).unwrap()
+
+    }
+
+    /// Returns a reference to the squares vectors 
+    /// # Description 
+    /// A method private to the crate that is used for testing 
+    /// Call once moves have been made to compare to expected postion 
+    pub(crate) fn get_squares(&self) -> &Vec<Vec<Option<Piece>>> {
+        &self.squares
+    }
+
+    fn get_piece(&self, x: usize, y: usize) -> Option<Piece> {
+        self.squares[y][x].clone()
 
     }
 
@@ -221,6 +234,7 @@ impl Board {
         let mut y = y as i8 + dy;
         while x >= 0 && x < 8 && y >= 0 && y < 8 {
             if self.squares[y as usize][x as usize].is_some() {
+                //log::trace!("First piece in direction ({},{}) is ({},{}) - {:?}", dx, dy, x, y, self.get_piece(x as usize, y as usize));
                 return Some((x as usize, y as usize));
             }
             x += dx;
@@ -245,6 +259,7 @@ impl Board {
     /// assert!(board.is_square_attacked(4, 2, Color::White));
     /// ```
     fn is_square_attacked(&self, x: usize, y: usize, color: Color) -> bool {
+        log::trace!("Checking if square ({},{}) is being attacked by {} piece", x, y, color);
         // Define static arrays that get used internally to the function
         static LINE_PIECES: [PieceType; 2] = [PieceType::Rook, PieceType::Queen];
         static DIAGONAL_PIECES: [PieceType; 2] = [PieceType::Bishop, PieceType::Queen];
@@ -259,7 +274,10 @@ impl Board {
         // look for rooks and queens
         for (dx, dy) in &STRAIGHT_DIRECTIONS {
             if let Some((x, y)) = self.first_piece_in_direction(x, y, *dx, *dy) {
-                if is_piece(self.squares[y][x].as_ref(), &LINE_PIECES) { return true; }
+                if is_piece(self.squares[y][x].as_ref(), &LINE_PIECES) { 
+                    log::trace!("Square is attacked by a straight piece");
+                    return true; 
+                }
             }
         }
         // look for bishops, queens and pawns
@@ -267,10 +285,12 @@ impl Board {
             if let Some((x, y)) = self.first_piece_in_direction(x, y, *dx, *dy) {
                 if (color == Color::White && *dy == -1) || (color == Color::Black && *dy == 1){
                     if is_piece(self.squares[y][x].as_ref(), &DIAGONAL_PIECES_WITH_PAWN) {
+                        log::trace!("Square is attacked by a diagonal piece with pawn");
                         return true;
                     }
                 } else {
                     if is_piece(self.squares[y][x].as_ref(), &DIAGONAL_PIECES) {
+                        log::trace!("Square is attacked by a diagonal piece");
                         return true;
                     }
                 }
@@ -294,15 +314,20 @@ impl Board {
             Some(piece) => piece,
             None => return Err(MoveError::NoPieceOnSourceSquare),
         };
+        log::trace!("Attempting to move from ({},{}) - {:?}", from_x, from_y, piece_unmoved);
         if from_y == to_y && from_x == to_x {
             return Err(MoveError::MustMovePiece); 
         }
         if *piece_unmoved.get_color() != self.player_turn { 
+            log::trace!("Piece wrong color");
             return Err(MoveError::IllegalMove)
         }
         let mut en_passant_target: Option<(usize, usize)> = None;
         match piece_unmoved.check_move(from_x, from_y, to_x, to_y) {
-            MoveType::Illegal => return Err(MoveError::IllegalMove),
+            MoveType::Illegal => {
+                log::trace!("Move check failed");
+                return Err(MoveError::IllegalMove);
+            }
             MoveType::Pawn1 => {
                 if self.squares[to_y][to_x].is_some() {
                     return Err(MoveError::IllegalMove);
@@ -315,7 +340,10 @@ impl Board {
                 self.halfmove = 0;
             },
             MoveType::Pawn2 => {
-                if self.squares[to_y][to_x].is_some() || self.squares[from_y + 1][from_x].is_some() {
+                log::trace!("Registered as double pawn move");
+                let middle_y = if self.player_turn.is_white() {from_y + 1} else {from_y - 1};
+                if self.squares[to_y][to_x].is_some() || self.squares[middle_y][from_x].is_some() {
+                    log::trace!("Move rejected because there is a piece there");
                     return Err(MoveError::IllegalMove);
                 }
                 self.unchecked_move_piece(from_x, from_y, to_x, to_y);

@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
@@ -12,5 +14,17 @@ impl Color {
             Color::Black => Color::White,
         }
     }
+
+    pub fn is_white(&self) -> bool {
+        *self == Color::White
+    }
 }
 
+impl Display for Color {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", match self {
+            Color::White => "White",
+            Color::Black => "Black",
+        })
+    }
+}

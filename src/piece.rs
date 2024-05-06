@@ -1,6 +1,6 @@
 use crate::{color::Color, move_type::MoveType, piece_type::PieceType};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Piece {
     piece: PieceType,
     color: Color,
