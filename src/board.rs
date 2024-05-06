@@ -364,6 +364,22 @@ impl Board {
                 } else {
                     self.halfmove = 0;
                 }
+                match self.player_turn {
+                    Color::White => {
+                        if from_x == 0 && from_y == 0 {
+                            self.white_can_castle_queen = false;
+                        } else if from_x == 7 && from_y == 0 {
+                            self.white_can_castle_king = false;
+                        }
+                    }
+                    Color::Black => {
+                        if from_x == 0 && from_y == 7 {
+                            self.black_can_castle_queen = false;
+                        } else if from_x == 7 && from_y == 7 {
+                            self.black_can_castle_king = false;
+                        }
+                    }
+                }
             },
             MoveType::Knight => {
                 if let Some(piece) = &self.squares[to_y][to_x] {
@@ -527,7 +543,7 @@ impl Board {
             y += y_dir;
         }
         if let Some(piece) = &self.squares[to_y as usize][to_x as usize] {
-            if *piece.get_color() == *self.squares[from_y as usize][from_x as usize].as_ref().unwrap().get_color() {
+            if *piece.get_color() == self.player_turn {
                 return false
             }
         }
