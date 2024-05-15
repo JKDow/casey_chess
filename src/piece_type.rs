@@ -23,3 +23,19 @@ impl Display for PieceType {
         })
     }
 }
+
+impl TryFrom<char> for PieceType {
+    type Error = ();
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value {
+            'P' => Ok(PieceType::Pawn),
+            'R' => Ok(PieceType::Rook),
+            'N' => Ok(PieceType::Knight),
+            'B' => Ok(PieceType::Bishop),
+            'Q' => Ok(PieceType::Queen),
+            'K' => Ok(PieceType::King),
+            _ => Err(()),
+        }
+    }
+}

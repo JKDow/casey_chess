@@ -1,4 +1,5 @@
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MoveType {
     Illegal,
     Pawn1,

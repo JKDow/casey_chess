@@ -1,6 +1,6 @@
 use std::usize;
 
-use crate::{color::Color, errors::move_error::MoveError, move_type::MoveType, piece::Piece, piece_type::PieceType};
+use crate::{color::Color, errors::move_error::MoveError, move_type::MoveType, piece::Piece, piece_type::PieceType, utils::notation::square_to_coords};
 
 #[derive(Debug)]
 pub struct Board {
@@ -152,11 +152,11 @@ impl Board {
     /// # Description 
     /// A method private to the crate that is used for testing 
     /// Call once moves have been made to compare to expected postion 
-    pub(crate) fn get_squares(&self) -> &Vec<Vec<Option<Piece>>> {
+    pub fn get_squares(&self) -> &Vec<Vec<Option<Piece>>> {
         &self.squares
     }
 
-    fn get_piece(&self, x: usize, y: usize) -> Option<Piece> {
+    pub fn get_piece(&self, x: usize, y: usize) -> Option<Piece> {
         self.squares[y][x].clone()
 
     }
@@ -362,10 +362,16 @@ impl Board {
                 let taken = self.unchecked_move_piece(from_x, from_y, to_x, to_y);
                 if taken.is_none() {
                     let en_passant = self.en_passant.as_ref().unwrap().clone();
-                    let taken = self.squares[en_passant.1][en_passant.0].take();
+                    let taken = match self.player_turn {
+                        Color::White => self.squares[en_passant.1 - 1][en_passant.0].take(),
+                        Color::Black => self.squares[en_passant.1 + 1][en_passant.0].take(),
+                    };
                     if self.king_in_check() {
                         self.unchecked_move_piece(to_x, to_y, from_x, from_y);
-                        self.squares[en_passant.1][en_passant.0] = taken;
+                        match self.player_turn {
+                            Color::White => self.squares[en_passant.1 - 1][en_passant.0] = taken,
+                            Color::Black => self.squares[en_passant.1 + 1][en_passant.0] = taken,
+                        }
                         return Err(MoveError::KingInCheck);
                     }
                 } else {
@@ -583,7 +589,7 @@ impl Board {
             if !self.white_can_castle_king {
                 return false
             }
-            if self.is_square_attacked(4, 0, Color::White) || self.is_square_attacked(5, 0, Color::White) || self.is_square_attacked(6, 0, Color::White) {
+            if self.is_square_attacked(4, 0, Color::Black) || self.is_square_attacked(5, 0, Color::Black) || self.is_square_attacked(6, 0, Color::Black) {
                 return false
             }
             if self.squares[0][5].is_some() || self.squares[0][6].is_some() {
@@ -593,7 +599,7 @@ impl Board {
             if !self.black_can_castle_king {
                 return false
             }
-            if self.is_square_attacked(4, 7, Color::Black) || self.is_square_attacked(5, 7, Color::Black) || self.is_square_attacked(6, 7, Color::Black) {
+            if self.is_square_attacked(4, 7, Color::White) || self.is_square_attacked(5, 7, Color::White) || self.is_square_attacked(6, 7, Color::White) {
                 return false
             }
             if self.squares[7][5].is_some() || self.squares[7][6].is_some() {
@@ -626,5 +632,106 @@ impl Board {
             }
         }
         true
+    }
+
+    pub fn algebraic_move(&mut self, move_str: &str) -> Result<(), MoveError> {
+        let move_str = move_str.trim();
+        let chars = move_str.chars().collect::<Vec<_>>();
+        if chars.len() < 2 {
+            return Err(MoveError::IllegalMove);
+        }
+        // find the piece type
+        let piece_type = match PieceType::try_from(chars[0]) {
+            Ok(piece) => piece,
+            Err(_) => match chars[0] {
+                'O' => PieceType::King,
+                'a'..='h' => PieceType::Pawn,
+                _ => return Err(MoveError::IllegalMove),
+            }
+        };
+        log::trace!("Piece type: {:?}", piece_type);
+        // handle castling
+        if piece_type == PieceType::King && move_str == "O-O" {
+            return match self.player_turn {
+                Color::White => self.move_piece(self.white_king_position.0, self.white_king_position.1, 6, 0),
+                Color::Black => self.move_piece(self.black_king_position.0, self.black_king_position.1, 6, 7),
+            }
+        } else if piece_type == PieceType::King && move_str == "O-O-O" {
+            return match self.player_turn {
+                Color::White => self.move_piece(self.white_king_position.0, self.white_king_position.1, 2, 0),
+                Color::Black => self.move_piece(self.black_king_position.0, self.black_king_position.1, 2, 7),
+            }
+        }
+        match piece_type {
+            PieceType::Pawn => {
+                if chars[1] == 'x' {
+                    log::trace!("Pawn capture");
+                    if chars.len() < 4 {
+                        return Err(MoveError::IllegalMove);
+                    }
+                    let to = square_to_coords(&move_str[2..4]);
+                    if to.is_none() {
+                        return Err(MoveError::IllegalMove);
+                    }
+                    let (to_x, to_y) = to.unwrap();
+                    let from_x = chars[0] as usize - 'a' as usize;
+                    let from_y = match self.player_turn {
+                        Color::White => to_y - 1,
+                        Color::Black => to_y + 1,
+                    };
+                    return self.move_piece(from_x, from_y, to_x, to_y);
+                }             
+                log::trace!("Pawn move");
+                let to = square_to_coords(&move_str[0..2]);
+                if to.is_none() {
+                    return Err(MoveError::IllegalMove);
+                }
+                let (to_x, to_y) = to.unwrap();
+                log::trace!("To: ({},{})", to_x, to_y);
+                let from_y = match self.player_turn {
+                    Color::White => {
+                        if self.squares[to_y - 1][to_x].is_some() {
+                            to_y - 1
+                        } else {
+                            to_y - 2
+                        }
+                    }
+                    Color::Black => {
+                        if self.squares[to_y + 1][to_x].is_some() {
+                            to_y + 1
+                        } else {
+                            to_y + 2
+                        }
+                    }
+                };
+                return self.move_piece(to_x, from_y, to_x, to_y);
+            }
+            PieceType::Rook | PieceType::Knight | PieceType::Bishop | PieceType::Queen | PieceType::King => {
+                let to = square_to_coords(&move_str[1..3]);
+                if to.is_none() {
+                    return Err(MoveError::IllegalMove);
+                }
+                let (to_x, to_y) = to.unwrap();
+                let mut from_x = usize::MAX;
+                let mut from_y = usize::MAX;
+                for y in 0..8 {
+                    for x in 0..8 {
+                        if let Some(piece) = &self.squares[y][x] {
+                            if *piece.get_color() == self.player_turn && *piece.get_type() == piece_type {
+                                if piece.check_move(x, y, to_x, to_y) != MoveType::Illegal {
+                                    from_x = x;
+                                    from_y = y;
+                                }
+                            }
+                        }
+                    }
+                }
+                if from_x == usize::MAX || from_y == usize::MAX {
+                    return Err(MoveError::IllegalMove);
+                }
+                return self.move_piece(from_x, from_y, to_x, to_y);
+            }
+
+        }
     }
 }

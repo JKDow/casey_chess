@@ -7,12 +7,14 @@ fn main() {
     simple_logger::SimpleLogger::new().with_colors(true).with_local_timestamps().init().unwrap();
     let mut board = Board::starting_position();
     board.print(casey_chess::color::Color::White);
-    board.move_piece(4, 1, 4, 3).unwrap();
-    board.print(casey_chess::color::Color::White);
-    board.move_piece(4, 6, 4, 4).unwrap();
-    board.print(casey_chess::color::Color::White);
-    board.move_piece(1, 0, 2, 2).unwrap();
-    board.print(casey_chess::color::Color::White);
-    board.move_piece(1, 7, 2, 5).unwrap();
-    board.print(casey_chess::color::Color::White);
+    loop {
+        let mut input = String::new();
+        println!("Enter move: ");
+        std::io::stdin().read_line(&mut input).unwrap();
+        let input = input.trim();
+        if let Err(e) = board.algebraic_move(input) {
+            log::warn!("Invalid move: {}", e);
+        }
+        board.print(casey_chess::color::Color::White);
+    }
 }

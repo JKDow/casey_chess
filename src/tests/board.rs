@@ -18,3 +18,9 @@ fn move_piece_basic_1() {
         }
     }
 }
+
+fn moce_piece_2() {
+    use crate::utils::notation::square_to_coords;
+    let mut board = Board::starting_position();
+
+}
