@@ -1,4 +1,4 @@
-use crate::board::Board;
+use crate::{board::Board, utils::move_depth::depth_check};
 
 
 #[test]
@@ -19,8 +19,16 @@ fn move_piece_basic_1() {
     }
 }
 
-fn moce_piece_2() {
-    use crate::utils::notation::square_to_coords;
-    let mut board = Board::starting_position();
+#[test]
+fn moves_from_start_1() {
+    let board = Board::starting_position();
+    let count = depth_check(1, board);
+    assert_eq!(count, 20);
+}
 
+#[test]
+fn moves_from_start_2() {
+    let board = Board::starting_position();
+    let count = depth_check(2, board);
+    assert_eq!(count, 400);
 }

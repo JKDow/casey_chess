@@ -1,8 +1,8 @@
 use std::usize;
 
-use crate::{color::Color, errors::move_error::MoveError, move_type::MoveType, piece::Piece, piece_type::PieceType, utils::notation::square_to_coords};
+use crate::{chess_move::Move, color::Color, errors::move_error::MoveError, move_type::MoveType, piece::Piece, piece_type::PieceType, utils::notation::square_to_coords};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Board {
     squares: Vec<Vec<Option<Piece>>>,
     move_number: u32,
@@ -161,6 +161,10 @@ impl Board {
 
     }
 
+    pub fn get_player_turn(&self) -> &Color {
+        &self.player_turn
+    }
+
     /// Print the board to the console.
     /// # Description
     /// Prints the board to the console with the given perspective.
@@ -258,12 +262,11 @@ impl Board {
     /// // The square e3 is attacked by a white pawn
     /// assert!(board.is_square_attacked(4, 2, Color::White));
     /// ```
-    fn is_square_attacked(&self, x: usize, y: usize, color: Color) -> bool {
-        log::trace!("Checking if square ({},{}) is being attacked by {} piece", x, y, color);
+    pub(crate) fn is_square_attacked(&self, x: usize, y: usize, color: Color) -> bool {
+        // log::trace!("Checking if square ({},{}) is being attacked by {} piece", x, y, color);
         // Define static arrays that get used internally to the function
         static LINE_PIECES: [PieceType; 2] = [PieceType::Rook, PieceType::Queen];
         static DIAGONAL_PIECES: [PieceType; 2] = [PieceType::Bishop, PieceType::Queen];
-        static DIAGONAL_PIECES_WITH_PAWN: [PieceType; 3] = [PieceType::Bishop, PieceType::Queen, PieceType::Pawn];
         static KNIGHT: [PieceType; 1] = [PieceType::Knight];
         static STRAIGHT_DIRECTIONS: [(i8, i8); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
         static DIAGONAL_DIRECTIONS: [(i8, i8); 4] = [(1, 1), (-1, 1), (1, -1), (-1, -1)];
@@ -271,11 +274,22 @@ impl Board {
         let is_piece = |piece: Option<&Piece>, check: &[PieceType]| -> bool {
             piece.map_or(false, |p| *p.get_color() == color && check.contains(p.get_type()))
         };
+        // Look for pawn attacks
+        let pawn_direction = if color == Color::White { -1 } else { 1 };
+        for &dx in [-1, 1].iter() {
+            let px = x as i8 + dx;
+            let py = y as i8 + pawn_direction;
+            if (0..8).contains(&px) && (0..8).contains(&py) {
+                if is_piece(self.squares[py as usize][px as usize].as_ref(), &[PieceType::Pawn]) {
+                    return true;
+                }
+            }
+        }
         // look for rooks and queens
         for (dx, dy) in &STRAIGHT_DIRECTIONS {
             if let Some((x, y)) = self.first_piece_in_direction(x, y, *dx, *dy) {
                 if is_piece(self.squares[y][x].as_ref(), &LINE_PIECES) { 
-                    log::trace!("Square is attacked by a straight piece");
+                    //log::trace!("Square is attacked by a {} straight piece on ({},{})", color, x, y);
                     return true; 
                 }
             }
@@ -283,16 +297,9 @@ impl Board {
         // look for bishops, queens and pawns
         for (dx, dy) in &DIAGONAL_DIRECTIONS {
             if let Some((x, y)) = self.first_piece_in_direction(x, y, *dx, *dy) {
-                if (color == Color::White && *dy == -1) || (color == Color::Black && *dy == 1){
-                    if is_piece(self.squares[y][x].as_ref(), &DIAGONAL_PIECES_WITH_PAWN) {
-                        log::trace!("Square is attacked by a diagonal piece with pawn");
-                        return true;
-                    }
-                } else {
-                    if is_piece(self.squares[y][x].as_ref(), &DIAGONAL_PIECES) {
-                        log::trace!("Square is attacked by a diagonal piece");
-                        return true;
-                    }
+                if is_piece(self.squares[y][x].as_ref(), &DIAGONAL_PIECES) {
+                    //log::trace!("Square is attacked by a diagonal piece");
+                    return true;
                 }
             }
         }
@@ -314,18 +321,18 @@ impl Board {
             Some(piece) => piece,
             None => return Err(MoveError::NoPieceOnSourceSquare),
         };
-        log::trace!("Attempting to move from ({},{}) - {:?}", from_x, from_y, piece_unmoved);
+        //log::trace!("Attempting to move from ({},{}) - {:?}", from_x, from_y, piece_unmoved);
         if from_y == to_y && from_x == to_x {
             return Err(MoveError::MustMovePiece); 
         }
         if *piece_unmoved.get_color() != self.player_turn { 
-            log::trace!("Piece wrong color");
+            //log::trace!("Piece wrong color");
             return Err(MoveError::IllegalMove)
         }
         let mut en_passant_target: Option<(usize, usize)> = None;
         match piece_unmoved.check_move(from_x, from_y, to_x, to_y) {
             MoveType::Illegal => {
-                log::trace!("Move check failed");
+                //log::trace!("Move check failed");
                 return Err(MoveError::IllegalMove);
             }
             MoveType::Pawn1 => {
@@ -340,10 +347,10 @@ impl Board {
                 self.halfmove = 0;
             },
             MoveType::Pawn2 => {
-                log::trace!("Registered as double pawn move");
+                //log::trace!("Registered as double pawn move");
                 let middle_y = if self.player_turn.is_white() {from_y + 1} else {from_y - 1};
                 if self.squares[to_y][to_x].is_some() || self.squares[middle_y][from_x].is_some() {
-                    log::trace!("Move rejected because there is a piece there");
+                    //log::trace!("Move rejected because there is a piece there");
                     return Err(MoveError::IllegalMove);
                 }
                 self.unchecked_move_piece(from_x, from_y, to_x, to_y);
@@ -469,7 +476,7 @@ impl Board {
 
             },
             MoveType::KingNormal => {
-                if self.is_square_attacked(to_x, to_y, *piece_unmoved.get_color()) {
+                if self.is_square_attacked(to_x, to_y, piece_unmoved.get_color().opposite()) {
                     return Err(MoveError::IllegalMove)
                 }
                 match self.player_turn {
@@ -557,7 +564,7 @@ impl Board {
     /// // In this position the white queen is attacking the black king
     /// assert!(board.king_in_check())
     /// ```
-    fn king_in_check(&self) -> bool {
+    pub(crate) fn king_in_check(&self) -> bool {
         match self.player_turn {
             Color::White => self.is_square_attacked(self.white_king_position.0, self.white_king_position.1, Color::Black),
             Color::Black => self.is_square_attacked(self.black_king_position.0, self.black_king_position.1, Color::White),
@@ -649,7 +656,7 @@ impl Board {
                 _ => return Err(MoveError::IllegalMove),
             }
         };
-        log::trace!("Piece type: {:?}", piece_type);
+        //log::trace!("Piece type: {:?}", piece_type);
         // handle castling
         if piece_type == PieceType::King && move_str == "O-O" {
             return match self.player_turn {
@@ -665,7 +672,7 @@ impl Board {
         match piece_type {
             PieceType::Pawn => {
                 if chars[1] == 'x' {
-                    log::trace!("Pawn capture");
+                    //log::trace!("Pawn capture");
                     if chars.len() < 4 {
                         return Err(MoveError::IllegalMove);
                     }
@@ -681,7 +688,7 @@ impl Board {
                     };
                     return self.move_piece(from_x, from_y, to_x, to_y);
                 }             
-                log::trace!("Pawn move");
+                //log::trace!("Pawn move");
                 let to = square_to_coords(&move_str[0..2]);
                 if to.is_none() {
                     return Err(MoveError::IllegalMove);
@@ -734,4 +741,106 @@ impl Board {
 
         }
     }
+
+    pub fn generate_legal_moves(&self) -> Vec<Move> {
+        let mut legal_moves = Vec::new();
+        
+        for y in 0..8 {
+            for x in 0..8 {
+                if let Some(piece) = &self.squares[y][x] {
+                    if *piece.get_color() == self.player_turn {
+                        let piece_moves = self.generate_piece_moves(x, y, piece);
+                        for mv in piece_moves {
+                            if self.is_legal_move(&mv) {
+                                legal_moves.push(mv);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        legal_moves
+    }
+
+    pub(crate) fn is_legal_move(&self, mv: &Move) -> bool {
+        let mut temp_board = self.clone();
+        temp_board.unchecked_move_piece(mv.from_x, mv.from_y, mv.to_x, mv.to_y);
+        if mv.piece_type == PieceType::King {
+            match self.player_turn {
+                Color::White => temp_board.white_king_position = (mv.to_x, mv.to_y),
+                Color::Black => temp_board.black_king_position = (mv.to_x, mv.to_y),
+            }
+        }
+        !temp_board.king_in_check()
+    }
+
+    fn generate_piece_moves(&self, x: usize, y: usize, piece: &Piece) -> Vec<Move> {
+        let mut moves = Vec::new();
+        let directions: Vec<(i8, i8)> = match piece.get_type() {
+            PieceType::Pawn => self.generate_pawn_moves(x, y, piece),
+            PieceType::Rook => vec![(1, 0), (-1, 0), (0, 1), (0, -1)],
+            PieceType::Knight => vec![(2, 1), (1, 2), (-1, 2), (-2, 1), (-2, -1), (-1, -2), (1, -2), (2, -1)],
+            PieceType::Bishop => vec![(1, 1), (-1, 1), (1, -1), (-1, -1)],
+            PieceType::Queen => vec![(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)],
+            PieceType::King => vec![(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)],
+        };
+
+        for &(dx, dy) in &directions {
+            let (mut nx, mut ny) = (x as i8 + dx, y as i8 + dy);
+            while nx >= 0 && nx < 8 && ny >= 0 && ny < 8 {
+                let to_x = nx as usize;
+                let to_y = ny as usize;
+
+                if let Some(target_piece) = &self.squares[to_y][to_x] {
+                    if target_piece.get_color() != piece.get_color() {
+                        moves.push(Move { from_x: x, from_y: y, to_x, to_y, piece_type: piece.get_type().clone() });
+                    }
+                    break;
+                } else {
+                    moves.push(Move { from_x: x, from_y: y, to_x, to_y, piece_type: piece.get_type().clone() });
+                }
+
+                if *piece.get_type() == PieceType::Knight || *piece.get_type() == PieceType::King || *piece.get_type() == PieceType::Pawn {
+                    break;
+                }
+
+                nx += dx;
+                ny += dy;
+            }
+        }
+
+        moves
+    }
+
+    fn generate_pawn_moves(&self, x: usize, y: usize, piece: &Piece) -> Vec<(i8, i8)> {
+        let mut moves = Vec::new();
+        let direction = if *piece.get_color() == Color::White { 1 } else { -1 };
+
+        let forward_one = y as i8 + direction;
+        if forward_one >= 0 && forward_one < 8 && self.squares[forward_one as usize][x].is_none() {
+            moves.push((0, direction));
+            let forward_two = y as i8 + 2 * direction;
+            if (*piece.get_color() == Color::White && y == 1) || (*piece.get_color() == Color::Black && y == 6) {
+                if self.squares[forward_two as usize][x].is_none() {
+                    moves.push((0, 2 * direction));
+                }
+            }
+        }
+
+        for &dx in [-1, 1].iter() {
+            let capture_y = forward_one;
+            let capture_x = x as i8 + dx;
+            if capture_x >= 0 && capture_x < 8 && capture_y >= 0 && capture_y < 8 {
+                if let Some(target_piece) = &self.squares[capture_y as usize][capture_x as usize] {
+                    if target_piece.get_color() != piece.get_color() {
+                        moves.push((dx, direction));
+                    }
+                }
+            }
+        }
+
+        moves
+    }
 }
+
