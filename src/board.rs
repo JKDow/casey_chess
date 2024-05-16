@@ -263,7 +263,7 @@ impl Board {
     /// assert!(board.is_square_attacked(4, 2, Color::White));
     /// ```
     pub(crate) fn is_square_attacked(&self, x: usize, y: usize, color: Color) -> bool {
-        // log::trace!("Checking if square ({},{}) is being attacked by {} piece", x, y, color);
+        //log::trace!("Checking if square ({},{}) is being attacked by {} piece", x, y, color);
         // Define static arrays that get used internally to the function
         static LINE_PIECES: [PieceType; 2] = [PieceType::Rook, PieceType::Queen];
         static DIAGONAL_PIECES: [PieceType; 2] = [PieceType::Bishop, PieceType::Queen];
@@ -297,8 +297,9 @@ impl Board {
         // look for bishops, queens and pawns
         for (dx, dy) in &DIAGONAL_DIRECTIONS {
             if let Some((x, y)) = self.first_piece_in_direction(x, y, *dx, *dy) {
+                //log::trace!("First piece in direction ({},{}) is ({},{})", dx, dy, x, y);
                 if is_piece(self.squares[y][x].as_ref(), &DIAGONAL_PIECES) {
-                    //log::trace!("Square is attacked by a diagonal piece");
+                    // log::trace!("Square is attacked by a diagonal piece");
                     return true;
                 }
             }
@@ -332,7 +333,7 @@ impl Board {
         let mut en_passant_target: Option<(usize, usize)> = None;
         match piece_unmoved.check_move(from_x, from_y, to_x, to_y) {
             MoveType::Illegal => {
-                //log::trace!("Move check failed");
+                log::warn!("Move check failed");
                 return Err(MoveError::IllegalMove);
             }
             MoveType::Pawn1 => {
@@ -392,6 +393,7 @@ impl Board {
             },
             MoveType::Rook => {
                 if !self.check_straight_move(from_x as i8, from_y as i8, to_x as i8, to_y as i8) {
+                    log::warn!("Rook from ({},{}) to ({},{}) failed straight move check", from_x, from_y, to_x, to_y);
                     return Err(MoveError::IllegalMove);
                 }
                 let taken = self.unchecked_move_piece(from_x, from_y, to_x, to_y);
@@ -425,7 +427,8 @@ impl Board {
             MoveType::Knight => {
                 if let Some(piece) = &self.squares[to_y][to_x] {
                     if *piece.get_color() == *piece_unmoved.get_color() {
-                        return Err(MoveError::IllegalMove)
+                        log::warn!("Knigt on ({},{}) cannot capture own piece", to_x, to_y);
+                        return Err(MoveError::CannotCaptureOwnPiece)
                     }
                 }
                 let taken = self.unchecked_move_piece(from_x, from_y, to_x, to_y);
@@ -483,12 +486,12 @@ impl Board {
                     Color::White => {
                         self.white_can_castle_king = false;
                         self.white_can_castle_queen = false;
-                        self.white_king_position = (to_y, to_x)
+                        self.white_king_position = (to_x, to_y)
                     }
                     Color::Black => {
                         self.black_can_castle_king = false;
                         self.black_can_castle_queen = false;
-                        self.black_king_position = (to_y, to_x)
+                        self.black_king_position = (to_x, to_y)
                     }
                 }
                 if self.unchecked_move_piece(from_x, from_y, to_x, to_y).is_none() {
@@ -508,13 +511,13 @@ impl Board {
                         self.unchecked_move_piece(7, 0, 5, 0);
                         self.white_can_castle_king = false;
                         self.white_can_castle_queen = false;
-                        self.white_king_position = (to_y, to_x)
+                        self.white_king_position = (to_x, to_y)
                     }
                     Color::Black => {
                         self.unchecked_move_piece(7, 7, 5, 7);
                         self.black_can_castle_king = false;
                         self.black_can_castle_queen = false;
-                        self.black_king_position = (to_y, to_x)
+                        self.black_king_position = (to_x, to_y)
                     }
                 }
                 self.halfmove += 1;
@@ -529,13 +532,13 @@ impl Board {
                         self.unchecked_move_piece(0, 0, 3, 0);
                         self.white_can_castle_king = false;
                         self.white_can_castle_queen = false;
-                        self.white_king_position = (to_y, to_x)
+                        self.white_king_position = (to_x, to_y)
                     }
                     Color::Black => {
                         self.unchecked_move_piece(0, 7, 3, 7);
                         self.black_can_castle_king = false;
                         self.black_can_castle_queen = false;
-                        self.black_king_position = (to_y, to_x)
+                        self.black_king_position = (to_x, to_y)
                     }
                 }
                 self.halfmove += 1;
@@ -694,7 +697,7 @@ impl Board {
                     return Err(MoveError::IllegalMove);
                 }
                 let (to_x, to_y) = to.unwrap();
-                log::trace!("To: ({},{})", to_x, to_y);
+                //log::trace!("To: ({},{})", to_x, to_y);
                 let from_y = match self.player_turn {
                     Color::White => {
                         if self.squares[to_y - 1][to_x].is_some() {
@@ -714,8 +717,13 @@ impl Board {
                 return self.move_piece(to_x, from_y, to_x, to_y);
             }
             PieceType::Rook | PieceType::Knight | PieceType::Bishop | PieceType::Queen | PieceType::King => {
-                let to = square_to_coords(&move_str[1..3]);
+                let capture = move_str.find('x');
+                let to = match capture {
+                    Some(x) => square_to_coords(&move_str[x+1..=x+2]),
+                    None => square_to_coords(&move_str[1..3]),
+                };
                 if to.is_none() {
+                    log::warn!("Invalid square: {:?}", &move_str[1..3]);
                     return Err(MoveError::IllegalMove);
                 }
                 let (to_x, to_y) = to.unwrap();

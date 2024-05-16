@@ -12,4 +12,6 @@ pub enum MoveError {
     IllegalMove,
     #[error("King is in check")]
     KingInCheck,
+    #[error("Cannot capture own piece")]
+    CannotCaptureOwnPiece,
 }
