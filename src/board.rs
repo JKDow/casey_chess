@@ -73,7 +73,7 @@ impl Board {
     pub fn from_fen(fen: &str) -> Option<Board> {
         let mut board = Board::new();
         let fields = fen.split_whitespace().collect::<Vec<_>>();
-        if fields.len() < 6 {
+        if fields.len() < 4 {
             return None;
         }
         // Parse the first field 
@@ -122,9 +122,15 @@ impl Board {
             board.en_passant = Some((x, y));
         }
         // Parse the fifth field
-        board.halfmove = fields[4].parse().unwrap();
+        match fields.get(4) {
+            Some(field) => board.halfmove = field.parse().unwrap(),
+            None => board.halfmove = 0,
+        }
         // Parse the sixth field
-        board.move_number = fields[5].parse().unwrap();
+        match fields.get(5) {
+            Some(field) => board.move_number = field.parse().unwrap(),
+            None => board.move_number = 1,
+        }
 
         Some(board)
     }
@@ -298,7 +304,7 @@ impl Board {
             if let Some((x, y)) = self.first_piece_in_direction(x, y, *dx, *dy) {
                 //log::trace!("First piece in direction ({},{}) is ({},{})", dx, dy, x, y);
                 if is_piece(self.squares[y][x].as_ref(), &DIAGONAL_PIECES) {
-                    // log::trace!("Square is attacked by a diagonal piece");
+                    //log::trace!("Square is attacked by a diagonal piece");
                     return true;
                 }
             }
@@ -626,6 +632,13 @@ impl Board {
             if self.squares[0][5].is_some() || self.squares[0][6].is_some() {
                 return false
             }
+            if let Some(piece) = &self.squares[0][7] {
+                if *piece.get_type() != PieceType::Rook || *piece.get_color() != Color::White {
+                    return false
+                }
+            } else {
+                return false
+            }
         } else {
             if !self.black_can_castle_king {
                 return false
@@ -634,6 +647,13 @@ impl Board {
                 return false
             }
             if self.squares[7][5].is_some() || self.squares[7][6].is_some() {
+                return false
+            }
+            if let Some(piece) = &self.squares[7][7] {
+                if *piece.get_type() != PieceType::Rook || *piece.get_color() != Color::Black {
+                    return false
+                }
+            } else {
                 return false
             }
         }
@@ -645,20 +665,34 @@ impl Board {
             if !self.white_can_castle_queen {
                 return false
             }
-            if self.is_square_attacked(4, 0, Color::White) || self.is_square_attacked(3, 0, Color::White) || self.is_square_attacked(2, 0, Color::White) {
+            if self.is_square_attacked(4, 0, Color::Black) || self.is_square_attacked(3, 0, Color::Black) || self.is_square_attacked(2, 0, Color::Black) {
                 return false
             }
             if self.squares[0][3].is_some() || self.squares[0][2].is_some() || self.squares[0][1].is_some() {
+                return false
+            }
+            if let Some(piece) = &self.squares[0][0] {
+                if *piece.get_type() != PieceType::Rook || *piece.get_color() != Color::White {
+                    return false
+                }
+            } else {
                 return false
             }
         } else {
             if !self.black_can_castle_queen {
                 return false
             }
-            if self.is_square_attacked(4, 7, Color::Black) || self.is_square_attacked(3, 7, Color::Black) || self.is_square_attacked(2, 7, Color::Black) {
+            if self.is_square_attacked(4, 7, Color::White) || self.is_square_attacked(3, 7, Color::White) || self.is_square_attacked(2, 7, Color::White) {
                 return false
             }
             if self.squares[7][3].is_some() || self.squares[7][2].is_some() || self.squares[7][1].is_some() {
+                return false
+            }
+            if let Some(piece) = &self.squares[7][0] {
+                if *piece.get_type() != PieceType::Rook || *piece.get_color() != Color::Black {
+                    return false
+                }
+            } else {
                 return false
             }
         }
@@ -805,7 +839,6 @@ impl Board {
                 }
             }
         }
-
         legal_moves
     }
 
@@ -816,6 +849,11 @@ impl Board {
             match self.player_turn {
                 Color::White => temp_board.white_king_position = (mv.to_x, mv.to_y),
                 Color::Black => temp_board.black_king_position = (mv.to_x, mv.to_y),
+            }
+        } else if mv.piece_type == PieceType::Pawn && mv.to_x == self.en_passant.unwrap_or((9, 9)).0 && mv.to_y == self.en_passant.unwrap_or((9, 9)).1 {
+            match self.player_turn {
+                Color::White => temp_board.squares[mv.to_y - 1][mv.to_x] = None,
+                Color::Black => temp_board.squares[mv.to_y + 1][mv.to_x] = None,
             }
         }
         !temp_board.king_in_check()
@@ -870,7 +908,22 @@ impl Board {
                 ny += dy;
             }
         }
-
+        if *piece.get_type() == PieceType::King {
+            if self.check_kingside_castle() {
+                moves.push(Move { from_x: x, from_y: y, to_x: x + 2, to_y: y, piece_type: PieceType::King, promotion: None });
+            }
+            if self.check_queenside_castle() {
+                moves.push(Move { from_x: x, from_y: y, to_x: x - 2, to_y: y, piece_type: PieceType::King, promotion: None });
+            }
+        }
+        let dy: i32 = if *piece.get_color() == Color::White { 1 } else { -1 };
+        if *piece.get_type() == PieceType::Pawn {
+            if let Some((ex, ey)) = self.en_passant {
+                if ey as i32 == y as i32 + dy && ex == x {
+                    moves.push(Move { from_x: x, from_y: y, to_x: ex, to_y: ey, piece_type: PieceType::Pawn, promotion: None });
+                }
+            }
+        }
         moves
     }
 
@@ -897,6 +950,8 @@ impl Board {
                     if target_piece.get_color() != piece.get_color() {
                         moves.push((dx, direction));
                     }
+                } else if self.en_passant == Some((capture_x as usize, capture_y as usize)) {
+                    moves.push((dx, direction));
                 }
             }
         }
