@@ -22,6 +22,16 @@ impl Move {
             promotion,
         }
     }
+
+    pub fn extended_algebraic(&self) -> String {
+        let file = |x| (b'a' + x as u8) as char;
+        let rank = |y| (b'1' + y as u8) as char;
+        if let Some(promotion) = &self.promotion {
+            format!("{}{}{}{}{}", file(self.from_x), rank(self.from_y), file(self.to_x), rank(self.to_y), promotion)
+        } else {
+            format!("{}{}{}{}", file(self.from_x), rank(self.from_y), file(self.to_x), rank(self.to_y))
+        }
+    }
 }
 
 impl Display for Move {
