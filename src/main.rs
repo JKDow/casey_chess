@@ -30,7 +30,7 @@ fn console_game_loop() {
         }
         let mut rng = rand::thread_rng(); 
         let random_move = &moves[rng.gen_range(0..moves.len())];
-        board.move_piece(random_move.from_x, random_move.from_y, random_move.to_x, random_move.to_y).unwrap();
+        board.move_piece(random_move.clone()).unwrap();
         log::info!("Black made move: {}", random_move);
         board.print(casey_chess::color::Color::White);
     }
@@ -49,7 +49,7 @@ fn depth_calc(depth: u32) {
 fn main() {
     // setup simple logger 
     simple_logger::SimpleLogger::new().with_colors(true).with_local_timestamps().init().unwrap();
-    console_game_loop();
-    // depth_calc(6);
+    //console_game_loop();
+    depth_calc(5);
 }
 
