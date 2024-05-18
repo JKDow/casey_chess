@@ -1,4 +1,4 @@
-use casey_chess::uci::uci_interface::UciHandler;
+use casey_chess::{uci::uci_interface::UciHandler, utils::main_functions::console_game_loop};
 
 
 
@@ -11,5 +11,7 @@ fn main() {
         .init()
         .unwrap();
     UciHandler::new("Casey".to_string(), "JKDow".to_string()).run();
+    //
+    // console_game_loop();
 }
 

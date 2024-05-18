@@ -19,12 +19,12 @@ impl UciGuiToEngine {
         let mut parts = input.split_whitespace();
         match parts.next() {
             Some("uci") => Some(UciGuiToEngine::Uci),
-            Some("debug") => Some(UciGuiToEngine::Debug(parts.collect())),
+            Some("debug") => Some(UciGuiToEngine::Debug(parts.collect::<Vec<&str>>().join(" "))),
             Some("isready") => Some(UciGuiToEngine::IsReady),
-            Some("setoption") => Some(UciGuiToEngine::SetOption(parts.collect())),
+            Some("setoption") => Some(UciGuiToEngine::SetOption(parts.collect::<Vec<&str>>().join(" "))),
             Some("ucinewgame") => Some(UciGuiToEngine::UciNewGame),
-            Some("position") => Some(UciGuiToEngine::Position(parts.collect())),
-            Some("go") => Some(UciGuiToEngine::Go(parts.collect())),
+            Some("position") => Some(UciGuiToEngine::Position(parts.collect::<Vec<&str>>().join(" "))),
+            Some("go") => Some(UciGuiToEngine::Go(parts.collect::<Vec<&str>>().join(" "))),
             Some("stop") => Some(UciGuiToEngine::Stop),
             Some("ponderhit") => Some(UciGuiToEngine::PonderHit),
             Some("quit") => Some(UciGuiToEngine::Quit),

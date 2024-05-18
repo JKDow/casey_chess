@@ -110,6 +110,7 @@ impl UciHandler {
             UciHandlerState::Idle => {
                 let parts: Vec<&str> = pos.trim().split_whitespace().collect(); 
                 let mv = parts.last().unwrap().to_string();
+                log::debug!("Got move {} from parts {:?}", mv, parts);
                 self.tx.send(HandlerTx::MakeMove(mv)).unwrap();
             }
             UciHandlerState::Thinking => {}

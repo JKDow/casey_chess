@@ -48,6 +48,7 @@ impl UciEngine {
     }
 
     fn handle_starting_position(&mut self, moves: String) {
+        log::debug!("Setting starting position with moves: {}", moves);
         self.game = Game::new();
         let mut moves = moves.split_whitespace().collect::<Vec<&str>>();
         if moves.len() == 0 {
