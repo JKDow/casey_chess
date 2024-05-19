@@ -273,8 +273,10 @@ impl Board {
         static LINE_PIECES: [PieceType; 2] = [PieceType::Rook, PieceType::Queen];
         static DIAGONAL_PIECES: [PieceType; 2] = [PieceType::Bishop, PieceType::Queen];
         static KNIGHT: [PieceType; 1] = [PieceType::Knight];
+        static KING: [PieceType; 1] = [PieceType::King];
         static STRAIGHT_DIRECTIONS: [(i8, i8); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
         static DIAGONAL_DIRECTIONS: [(i8, i8); 4] = [(1, 1), (-1, 1), (1, -1), (-1, -1)];
+        static KING_MOVES: [(i8, i8); 8] = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)];
         // Helper function to check if a piece is of the given color and type
         let is_piece = |piece: Option<&Piece>, check: &[PieceType]| -> bool {
             piece.map_or(false, |p| *p.get_color() == color && check.contains(p.get_type()))
@@ -288,6 +290,14 @@ impl Board {
                 if is_piece(self.squares[py as usize][px as usize].as_ref(), &[PieceType::Pawn]) {
                     return true;
                 }
+            }
+        }
+        // look for kings
+        for &(dx, dy) in &KING_MOVES {
+            let nx = x as i8 + dx;
+            let ny = y as i8 + dy;
+            if (0..8).contains(&nx) && (0..8).contains(&ny) && is_piece(self.squares[ny as usize][nx as usize].as_ref(), &KING) {
+                return true;
             }
         }
         // look for rooks and queens

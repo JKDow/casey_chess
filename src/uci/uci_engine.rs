@@ -94,12 +94,13 @@ impl UciEngine {
     }
 
     fn handle_make_move(&mut self, mv: String) {
+        let mv = mv.trim();
         let from_x = mv.chars().nth(0).unwrap() as u8 - 97;
         let from_y = mv.chars().nth(1).unwrap() as u8 - 49;
         let to_x = mv.chars().nth(2).unwrap() as u8 - 97;
         let to_y = mv.chars().nth(3).unwrap() as u8 - 49;
         let promotion = if mv.len() == 5 {
-            let piece = mv.chars().nth(4).unwrap();
+            let piece = mv.chars().nth(4).unwrap().to_ascii_uppercase();
             let piece = PieceType::try_from(piece).unwrap();
             Some(piece)
         } else {
@@ -107,6 +108,7 @@ impl UciEngine {
         };
         let piece = self.game.board.get_piece(from_x as usize, from_y as usize).unwrap();
         let mv: Move = Move::new(from_x as usize, from_y as usize, to_x as usize, to_y as usize, piece.get_type().clone(), promotion);
+        log::debug!("Engine is making move: {}", mv.extended_algebraic());
         self.game.make_move(mv).unwrap();
     }
 }
