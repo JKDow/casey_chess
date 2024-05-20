@@ -993,13 +993,51 @@ impl Board {
                 }
             }
         }
+        if self.king_in_check() {
+            match self.get_player_turn() {
+                Color::White => white -= 50,
+                Color::Black => black -= 50,
+            }
+        }
         white - black
     }
 
-    pub fn evaluate_move(&self, mv: Move) -> Result<i32, MoveError> {
+    pub fn evaluate_move(&self, mv: Move, depth: usize) -> Result<i32, MoveError> {
         let mut temp_board = self.clone();
         temp_board.move_piece(mv)?;
-        Ok(temp_board.basic_evaluate())
+        if depth == 0 {
+            return Ok(temp_board.basic_evaluate());
+        }
+        // Find the best response for the opponent
+        let moves = temp_board.generate_legal_moves();
+        if moves.len() == 0 {
+            // check for stalemate and checkmate 
+            if temp_board.king_in_check() {
+                match temp_board.get_player_turn() {
+                    Color::White => return Ok(i32::min_value()),
+                    Color::Black => return Ok(i32::max_value()),
+                }
+            } else {
+                return Ok(0);
+            }
+        }
+        let mut best_move_score = temp_board.evaluate_move(moves[0].clone(), depth - 1).unwrap();  
+        for i in 1..moves.len() {
+            let score = temp_board.evaluate_move(moves[i].clone(), depth - 1).unwrap();
+            match temp_board.get_player_turn() {
+                Color::White => {
+                    if score > best_move_score {
+                        best_move_score = score;
+                    }
+                }
+                Color::Black => {
+                    if score < best_move_score {
+                        best_move_score = score;
+                    }
+                }
+            }
+        }
+        Ok(best_move_score)
     }
 }
 

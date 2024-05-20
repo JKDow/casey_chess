@@ -1,3 +1,5 @@
+use rand::Rng;
+
 use crate::{board::Board, chess_move::{self, Move}, color::Color, errors::move_error::MoveError};
 
 pub struct Game {
@@ -27,15 +29,33 @@ impl Game {
     pub fn engine_move(&mut self) -> Move {
         let color = self.board.get_player_turn().clone();
         let moves = self.board.generate_legal_moves();
-        let mut best_move_index = 0;
-        let mut best_move_score = self.board.evaluate_move(moves[0].clone()).unwrap();  
+        let mut best_moves: Vec<usize> = vec![0; 1];
+        let mut best_move_score = self.board.evaluate_move(moves[0].clone(), 1).unwrap();  
         for i in 1..moves.len() {
-            let score = self.board.evaluate_move(moves[i].clone()).unwrap();
-            if score > best_move_score {
-                best_move_score = score;
-                best_move_index = i;
+            let score = self.board.evaluate_move(moves[i].clone(), 1).unwrap();
+            match color {
+                Color::White => {
+                    if score > best_move_score {
+                        best_move_score = score;
+                        best_moves.clear();
+                        best_moves.push(i);
+                    } if score == best_move_score {
+                        best_moves.push(i);
+                    }
+                },
+                Color::Black => {
+                    if score < best_move_score {
+                        best_move_score = score;
+                        best_moves.clear();
+                        best_moves.push(i);
+                    } if score == best_move_score {
+                        best_moves.push(i);
+                    }
+                }
             }
         }
+        let mut rng = rand::thread_rng();
+        let best_move_index = best_moves[rng.gen_range(0..best_moves.len())];
         let best_move = moves[best_move_index].clone();
         self.board.move_piece(best_move.clone()).unwrap();
         log::trace!("Engine made move for it's turn: {}", best_move.extended_algebraic());
