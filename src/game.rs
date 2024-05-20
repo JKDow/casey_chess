@@ -32,6 +32,7 @@ impl Game {
         let mut rng = rand::thread_rng(); 
         let random_move = &moves[rng.gen_range(0..moves.len())];
         self.board.move_piece(random_move.clone()).unwrap();
+        log::trace!("Engine made move for it's turn: {}", random_move.extended_algebraic());
         match color {
             Color::White => self.move_history_white.push(random_move.clone()),
             Color::Black => self.move_history_black.push(random_move.clone()),

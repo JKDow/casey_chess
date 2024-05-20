@@ -21,7 +21,6 @@ impl UciInput {
             let mut input = String::new();
             std::io::stdin().read_line(&mut input).unwrap();
             let input = input.trim();
-            log::debug!("Received input: {}", input);
             let command = UciGuiToEngine::from_string(input);
             if let Some(command) = command {
                 self.tx.send(HandlerRx::GuiMsg(command)).unwrap();

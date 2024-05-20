@@ -342,8 +342,8 @@ impl Board {
             return Err(MoveError::MustMovePiece); 
         }
         if *piece_unmoved.get_color() != self.player_turn { 
-            //log::trace!("Piece wrong color");
-            return Err(MoveError::IllegalMove)
+            log::warn!("Piece {:?} is wrong color, current turn: {}", piece_unmoved, self.player_turn);
+            return Err(MoveError::PieceWrongColor)
         }
         let mut en_passant_target: Option<(usize, usize)> = None;
         match piece_unmoved.check_move(mv.from_x, mv.from_y, mv.to_x, mv.to_y) {
@@ -353,7 +353,7 @@ impl Board {
             }
             MoveType::Pawn1 => {
                 if self.squares[mv.to_y][mv.to_x].is_some() {
-                    return Err(MoveError::IllegalMove);
+                    return Err(MoveError::MoveBlocked);
                 }
                 self.unchecked_move_piece(mv.from_x, mv.from_y, mv.to_x, mv.to_y);
                 if self.king_in_check() {
@@ -374,7 +374,7 @@ impl Board {
                 let middle_y = if self.player_turn.is_white() {mv.from_y + 1} else {mv.from_y - 1};
                 if self.squares[mv.to_y][mv.to_x].is_some() || self.squares[middle_y][mv.from_x].is_some() {
                     //log::trace!("Move rejected because there is a piece there");
-                    return Err(MoveError::IllegalMove);
+                    return Err(MoveError::MoveBlocked);
                 }
                 self.unchecked_move_piece(mv.from_x, mv.from_y, mv.to_x, mv.to_y);
                 if self.king_in_check() {
@@ -483,6 +483,7 @@ impl Board {
             },
             MoveType::Bishop => {
                 if !self.check_straight_move(mv.from_x as i8, mv.from_y as i8, mv.to_x as i8, mv.to_y as i8) {
+                    log::warn!("Bishop from ({},{}) to ({},{}) failed straight move check", mv.from_x, mv.from_y, mv.to_x, mv.to_y);
                     return Err(MoveError::IllegalMove);
                 }
                 let taken = self.unchecked_move_piece(mv.from_x, mv.from_y, mv.to_x, mv.to_y);
@@ -500,6 +501,7 @@ impl Board {
             },
             MoveType::Queen => {
                 if !self.check_straight_move(mv.from_x as i8, mv.from_y as i8, mv.to_x as i8, mv.to_y as i8) {
+                    log::warn!("Queen from ({},{}) to ({},{}) failed straight move check", mv.from_x, mv.from_y, mv.to_x, mv.to_y);
                     return Err(MoveError::IllegalMove);
                 }
                 let taken = self.unchecked_move_piece(mv.from_x, mv.from_y, mv.to_x, mv.to_y);
@@ -517,7 +519,7 @@ impl Board {
             },
             MoveType::KingNormal => {
                 if self.is_square_attacked(mv.to_x, mv.to_y, piece_unmoved.get_color().opposite()) {
-                    return Err(MoveError::IllegalMove)
+                    return Err(MoveError::IllegalMove);
                 }
                 match self.player_turn {
                     Color::White => {

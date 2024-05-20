@@ -6,7 +6,8 @@ enum UciHandlerState {
     Ready, // Has received the "uci" command
     Idle, // Has received a position
     Thinking, // Is calculating a move
-    WaitMsg, // Waiting for a message from a thread
+    SettingPosition, // Waiting for a message from a thread
+    SettingPositionGo(String),
 }
 
 pub struct UciHandler {
@@ -43,6 +44,8 @@ impl UciHandler {
     pub fn run(&mut self) {
         loop {
             let message = self.rx.recv().unwrap();
+            log::trace!("Received message: {:?}", message);
+            log::trace!("Current state: {:?}", self.state);
             match message {
                 HandlerRx::EngineMsg(msg) => self.handle_engine_message(msg),
                 HandlerRx::GuiMsg(input) => self.handle_input(input),
@@ -54,7 +57,26 @@ impl UciHandler {
         log::debug!("Received engine message: {:?}", message);
         match message {
             EngineMsg::PositionSet => {
-                self.state = UciHandlerState::Idle;
+                if let UciHandlerState::SettingPositionGo(options) = &self.state {
+                    let options = options.split_whitespace().collect::<Vec<&str>>();
+                    if options.contains(&"infinite") {
+                        self.tx.send(HandlerTx::StartSearch).unwrap();
+                        self.state = UciHandlerState::Thinking;
+                        return;
+                    }
+                    if options.contains(&"movetime") {
+                        log::debug!("Got movetime option");
+                        let idx = options.iter().position(|&x| x == "movetime").unwrap();
+                        let time = options[idx + 1].parse::<u64>().unwrap();
+                        self.tx.send(HandlerTx::StartSearchTime(time)).unwrap();
+                        self.state = UciHandlerState::Thinking;
+                        return;
+                    }
+                    self.tx.send(HandlerTx::StartSearch).unwrap();
+                    self.state = UciHandlerState::Thinking;
+                } else {
+                    self.state = UciHandlerState::Idle;
+                }
             },
             EngineMsg::CurrentBestMove(mv) => {
                 self.current_best_move = Some(mv);
@@ -80,8 +102,7 @@ impl UciHandler {
     }
 
     fn command_uci(&mut self) {
-        log::debug!("Received UCI command");
-        log::trace!("Current state: {:?}", self.state);
+        log::debug!("Received UCI command in state {:?}", self.state);
         if self.state != UciHandlerState::New {
             return;
         }
@@ -105,22 +126,40 @@ impl UciHandler {
                 } else if parts[0] == "fen" {
                     self.tx.send(HandlerTx::NewFen(parts[1..].join(" "))).unwrap();
                 }
-                self.state = UciHandlerState::WaitMsg;
+                self.state = UciHandlerState::SettingPosition;
             }
             UciHandlerState::Idle => {
                 let parts: Vec<&str> = pos.trim().split_whitespace().collect(); 
                 let mv = parts.last().unwrap().to_string();
                 log::debug!("Got move {} from parts {:?}", mv, parts);
                 self.tx.send(HandlerTx::MakeMove(mv)).unwrap();
+                self.state = UciHandlerState::SettingPosition;
             }
             UciHandlerState::Thinking => {}
-            UciHandlerState::WaitMsg => {}
+            UciHandlerState::SettingPosition => {}
+            UciHandlerState::SettingPositionGo(_) => {}
         }
     }
 
-    fn command_go(&mut self, _options: &str) {
+    fn command_go(&mut self, options: &str) {
+        if self.state == UciHandlerState::SettingPosition {
+            self.state = UciHandlerState::SettingPositionGo(options.to_string());
+            return;
+        }
         if self.state != UciHandlerState::Idle {
             return;
+        }
+        let options = options.split_whitespace().collect::<Vec<&str>>();
+        if options.contains(&"infinite") {
+            self.tx.send(HandlerTx::StartSearch).unwrap();
+            self.state = UciHandlerState::Thinking;
+            return;
+        }
+        if options.contains(&"movetime") {
+            log::debug!("Got movetime option");
+            let idx = options.iter().position(|&x| x == "movetime").unwrap();
+            let time = options[idx + 1].parse::<u64>().unwrap();
+            self.tx.send(HandlerTx::StartSearchTime(time)).unwrap();
         }
         self.tx.send(HandlerTx::StartSearch).unwrap();
         self.state = UciHandlerState::Thinking;

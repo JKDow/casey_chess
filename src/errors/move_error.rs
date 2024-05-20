@@ -14,4 +14,8 @@ pub enum MoveError {
     KingInCheck,
     #[error("Cannot capture own piece")]
     CannotCaptureOwnPiece,
+    #[error("Cannot move opponent's piece")]
+    PieceWrongColor,
+    #[error("Move is blocked")] 
+    MoveBlocked,    
 }

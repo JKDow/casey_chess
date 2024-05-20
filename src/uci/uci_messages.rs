@@ -8,6 +8,7 @@ pub enum HandlerTx {
     StartSearch,
     StopSearch,
     MakeMove(String),
+    StartSearchTime(u64),
 }
 
 #[derive(Debug, PartialEq)]

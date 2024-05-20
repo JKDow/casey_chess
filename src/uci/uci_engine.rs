@@ -38,6 +38,7 @@ impl UciEngine {
                 HandlerTx::StartSearch => self.handle_start_search(),
                 HandlerTx::StopSearch => self.handle_stop_search(),
                 HandlerTx::MakeMove(mv) => self.handle_make_move(mv),
+                HandlerTx::StartSearchTime(time) => self.handle_start_search_time(time),
             }
         }
     }
@@ -81,7 +82,7 @@ impl UciEngine {
     fn handle_start_search(&mut self) {
         self.state = UciEngineState::Running;
         let mv = self.game.engine_move();
-        self.tx.send(HandlerRx::EngineMsg(EngineMsg::FinalBestMove(mv.extended_algebraic()))).unwrap();
+        self.tx.send(HandlerRx::EngineMsg(EngineMsg::CurrentBestMove(mv.extended_algebraic()))).unwrap();
         self.state = UciEngineState::Idle; 
     }
 
@@ -89,16 +90,27 @@ impl UciEngine {
         if self.state == UciEngineState::Idle {
             return
         }
-        self.tx.send(HandlerRx::EngineMsg(EngineMsg::FinalBestMove("0000".to_string()))).unwrap();
+        self.state = UciEngineState::Idle;
+    }
+
+    fn handle_start_search_time(&mut self, time: u64) {
+        log::trace!("Received start search time: {} command", time);
+        self.state = UciEngineState::Running;
+        let mv = self.game.engine_move();
+        // delay for time ms 
+        std::thread::sleep(std::time::Duration::from_millis(time));
+        self.tx.send(HandlerRx::EngineMsg(EngineMsg::FinalBestMove(mv.extended_algebraic()))).unwrap();
         self.state = UciEngineState::Idle;
     }
 
     fn handle_make_move(&mut self, mv: String) {
         let mv = mv.trim();
+        log::trace!("Engine translating move: {}", mv);
         let from_x = mv.chars().nth(0).unwrap() as u8 - 97;
         let from_y = mv.chars().nth(1).unwrap() as u8 - 49;
         let to_x = mv.chars().nth(2).unwrap() as u8 - 97;
         let to_y = mv.chars().nth(3).unwrap() as u8 - 49;
+        log::debug!("Engine translated move to: ({}{}) ({}{})", from_x, from_y, to_x, to_y);
         let promotion = if mv.len() == 5 {
             let piece = mv.chars().nth(4).unwrap().to_ascii_uppercase();
             let piece = PieceType::try_from(piece).unwrap();
@@ -110,5 +122,6 @@ impl UciEngine {
         let mv: Move = Move::new(from_x as usize, from_y as usize, to_x as usize, to_y as usize, piece.get_type().clone(), promotion);
         log::debug!("Engine is making move: {}", mv.extended_algebraic());
         self.game.make_move(mv).unwrap();
+        self.tx.send(HandlerRx::EngineMsg(EngineMsg::PositionSet)).unwrap();
     }
 }
