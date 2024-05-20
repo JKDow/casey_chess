@@ -1,5 +1,3 @@
-use rand::Rng;
-
 use crate::{board::Board, chess_move::{self, Move}, color::Color, errors::move_error::MoveError};
 
 pub struct Game {
@@ -29,15 +27,23 @@ impl Game {
     pub fn engine_move(&mut self) -> Move {
         let color = self.board.get_player_turn().clone();
         let moves = self.board.generate_legal_moves();
-        let mut rng = rand::thread_rng(); 
-        let random_move = &moves[rng.gen_range(0..moves.len())];
-        self.board.move_piece(random_move.clone()).unwrap();
-        log::trace!("Engine made move for it's turn: {}", random_move.extended_algebraic());
-        match color {
-            Color::White => self.move_history_white.push(random_move.clone()),
-            Color::Black => self.move_history_black.push(random_move.clone()),
+        let mut best_move_index = 0;
+        let mut best_move_score = self.board.evaluate_move(moves[0].clone()).unwrap();  
+        for i in 1..moves.len() {
+            let score = self.board.evaluate_move(moves[i].clone()).unwrap();
+            if score > best_move_score {
+                best_move_score = score;
+                best_move_index = i;
+            }
         }
-        return random_move.clone();
+        let best_move = moves[best_move_index].clone();
+        self.board.move_piece(best_move.clone()).unwrap();
+        log::trace!("Engine made move for it's turn: {}", best_move.extended_algebraic());
+        match color {
+            Color::White => self.move_history_white.push(best_move.clone()),
+            Color::Black => self.move_history_black.push(best_move.clone()),
+        }
+        return best_move;
     }
 
     pub fn from_fen(fen: &str) -> Game {

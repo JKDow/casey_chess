@@ -11,6 +11,19 @@ pub enum PieceType {
     King,
 }
 
+impl PieceType {
+    pub fn to_centipawns(&self) -> i32 {
+        match self {
+            PieceType::Pawn => 100,
+            PieceType::Rook => 500,
+            PieceType::Knight => 300,
+            PieceType::Bishop => 300,
+            PieceType::Queen => 900,
+            PieceType::King => 0,
+        }
+    }
+}
+
 impl Display for PieceType {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", match self {

@@ -970,5 +970,36 @@ impl Board {
 
         moves
     }
+
+    /// Evauates the current position
+    /// # Description
+    /// This function evaluates the current position and returns a score
+    /// The score is positive if white is winning and negative if black is winning
+    /// The score will be in the unit of centipawns
+    /// # Inputs/Outputs
+    /// - Inputs: None
+    /// - Outputs: i32 - score in centipawns
+    pub fn basic_evaluate(&self) -> i32 {
+        let mut white = 0;
+        let mut black = 0;
+        for y in 0..8 {
+            for x in 0..8 {
+                if let Some(piece) = &self.squares[y][x] {
+                    let value = piece.to_centipawns();
+                    match piece.get_color() {
+                        Color::White => white += value,
+                        Color::Black => black += value,
+                    }
+                }
+            }
+        }
+        white - black
+    }
+
+    pub fn evaluate_move(&self, mv: Move) -> Result<i32, MoveError> {
+        let mut temp_board = self.clone();
+        temp_board.move_piece(mv)?;
+        Ok(temp_board.basic_evaluate())
+    }
 }
 
