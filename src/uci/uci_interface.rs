@@ -159,7 +159,9 @@ impl UciHandler {
             log::debug!("Got movetime option");
             let idx = options.iter().position(|&x| x == "movetime").unwrap();
             let time = options[idx + 1].parse::<u64>().unwrap();
+            self.state = UciHandlerState::Thinking;
             self.tx.send(HandlerTx::StartSearchTime(time)).unwrap();
+            return;
         }
         self.tx.send(HandlerTx::StartSearch).unwrap();
         self.state = UciHandlerState::Thinking;
