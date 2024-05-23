@@ -27,17 +27,45 @@ impl Game {
     }
 
     pub fn engine_move(&mut self) -> Move {
+        let depth = 1;
         let color = self.board.get_player_turn().clone();
         let moves = self.board.generate_legal_moves();
-        let mut rng = rand::thread_rng(); 
-        let random_move = &moves[rng.gen_range(0..moves.len())];
-        self.board.move_piece(random_move.clone()).unwrap();
-        log::trace!("Engine made move for it's turn: {}", random_move.extended_algebraic());
-        match color {
-            Color::White => self.move_history_white.push(random_move.clone()),
-            Color::Black => self.move_history_black.push(random_move.clone()),
+        let mut best_moves: Vec<usize> = vec![0; 1];
+        let mut best_move_score = self.board.evaluate_move(moves[0].clone(), depth).unwrap();  
+        for i in 1..moves.len() {
+            let score = self.board.evaluate_move(moves[i].clone(), depth).unwrap();
+            match color {
+                Color::White => {
+                    if score > best_move_score {
+                        best_move_score = score;
+                        best_moves.clear();
+                        best_moves.push(i);
+                    } if score == best_move_score {
+                        best_moves.push(i);
+                    }
+                },
+                Color::Black => {
+                    if score < best_move_score {
+                        best_move_score = score;
+                        best_moves.clear();
+                        best_moves.push(i);
+                    } if score == best_move_score {
+                        best_moves.push(i);
+                    }
+                }
+            }
         }
-        return random_move.clone();
+        let mut rng = rand::thread_rng();
+        let best_move_index = best_moves[rng.gen_range(0..best_moves.len())];
+        let best_move = moves[best_move_index].clone();
+        //log::info!("Engine calculated score to be {} for move {}", best_move_score, best_move.clone());
+        self.board.move_piece(best_move.clone()).unwrap();
+        log::trace!("Engine made move for it's turn: {}", best_move.extended_algebraic());
+        match color {
+            Color::White => self.move_history_white.push(best_move.clone()),
+            Color::Black => self.move_history_black.push(best_move.clone()),
+        }
+        return best_move;
     }
 
     pub fn from_fen(fen: &str) -> Game {

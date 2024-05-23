@@ -153,4 +153,8 @@ impl Piece {
         }        
         MoveType::Illegal
     }
+
+    pub fn to_centipawns(&self) -> i32 {
+        self.piece.to_centipawns()
+    }
 }
