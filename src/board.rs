@@ -1004,9 +1004,25 @@ impl Board {
 
     pub fn evaluate_move(&self, mv: Move, depth: usize) -> Result<i32, MoveError> {
         let mut temp_board = self.clone();
+        let mut modifier: i32 = 0;
+        if mv.piece_type == PieceType::King {
+            if (mv.to_x as i32 - mv.from_x as i32).abs() == 2 {
+                modifier = if self.player_turn.is_white() { 50 } else { -50 };
+                if !self.get_player_turn().is_white() {
+                    //log::info!("Modieier {} given to {} for castling on move {}", modifier, self.player_turn, mv);
+                }
+            } else {
+                modifier = if self.player_turn.is_white() { -50 } else { 50 };
+                /*
+                if !self.get_player_turn().is_white() {
+                    log::info!("Modieier {} given to {} for moving king on move {}", modifier, self.player_turn, mv);
+                }
+                */
+            }
+        }
         temp_board.move_piece(mv)?;
         if depth == 0 {
-            return Ok(temp_board.basic_evaluate());
+            return Ok(temp_board.basic_evaluate() + modifier);
         }
         // Find the best response for the opponent
         let moves = temp_board.generate_legal_moves();
